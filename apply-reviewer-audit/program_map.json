@@ -1,0 +1,43 @@
+{
+  "comment": "sha8 → ADVANCE translation program metadata. Used by /apply-reviewer-audit to pick the right regen path. Extend as new programs ship.",
+  "programs": {
+    "f945df86": {
+      "name": "COG_CB",
+      "kind": "manual",
+      "label": "COG_CB (group sessions manual)",
+      "regen": {
+        "tool": "json_to_docx",
+        "note": "Manuals: rebuild via tools/json_to_docx.py. Skill will surface the template + translated-JSON paths and ask user to confirm. blocks_to_translated_json step may be needed upstream — check translation/scripts/ for a current rebuild helper before running."
+      }
+    },
+    "3662af3a": {
+      "name": "CG",
+      "kind": "manual",
+      "label": "CG (group sessions manual, control)",
+      "regen": {
+        "tool": "json_to_docx",
+        "note": "Same as COG_CB — rebuild via tools/json_to_docx.py with the CG template."
+      }
+    },
+    "cf99aef9": {
+      "name": "vitalite",
+      "kind": "website",
+      "label": "Vitalité (Geistige Frische) website",
+      "regen": {
+        "tool": "blocks_to_website_db",
+        "cmd": "python scripts/blocks_to_website_db.py vitalite",
+        "output": "de_translation_sources/website/vitalite_german_translation_db.json"
+      }
+    },
+    "e44fcb66": {
+      "name": "serenite",
+      "kind": "website",
+      "label": "Sérénité (Innere Balance) website",
+      "regen": {
+        "tool": "blocks_to_website_db",
+        "cmd": "python scripts/blocks_to_website_db.py serenite",
+        "output": "de_translation_sources/website/serenite_german_translation_db.json"
+      }
+    }
+  }
+}
