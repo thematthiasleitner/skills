@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Vault Agent"
+  short_description: "Plugin-aware Obsidian vault content operations"
+  default_prompt: "Use $obsidian-vault-agent to perform safe, plugin-aware Obsidian content manipulation tasks, including restructuring, link hygiene, metadata normalization, and batch transformations."

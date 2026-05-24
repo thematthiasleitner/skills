@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Plugin From Scratch"
+  short_description: "Create Obsidian plugins from scratch"
+  default_prompt: "Use $obsidian-plugin-from-scratch to operationalize and implement a new Obsidian plugin end-to-end."

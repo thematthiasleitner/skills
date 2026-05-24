@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Plugin Builder"
+  short_description: "Legacy wrapper for split plugin skills"
+  default_prompt: "Use $obsidian-plugin-builder only when I explicitly want a single combined workflow across $obsidian-plugin-from-scratch and $obsidian-plugin-release-github."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Plugin Release (GitHub)"
+  short_description: "Release and update Obsidian plugins"
+  default_prompt: "Use $obsidian-plugin-release-github to prepare, release, and update my Obsidian plugin via GitHub."
