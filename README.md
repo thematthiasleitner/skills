@@ -40,6 +40,9 @@ git -C ~/.claude/skills pull
 | `qualtrics-e2e-pressure-test` | End-to-end pressure test |
 | `qualtrics-restructure-step` | Restructure Qualtrics survey steps |
 | `glossary` | Glossary lookup |
+| `alps-web-ship` | Build, verify, PR & deploy a change to any ALPS website (handles the pnpm/Cloudflare gotcha) |
+| `alps-web-add-speaker` | Add/refresh a speaker — 4:5 photo crop + bio entry, then ship |
+| `alps-web-sync-schedule` | Sync the programme from a planning XLSX, then ship |
 | `apple-mail-reply` | Compose Apple Mail replies |
 | `caveman` | Ultra-compressed responses |
 | `caveman-commit` | Compressed commit messages |
