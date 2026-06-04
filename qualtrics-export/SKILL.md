@@ -14,20 +14,49 @@ Complements `/qualtrics` (which covers the Qualtrics REST API). This skill cover
 
 ---
 
+## ⚠️ Rule: when updating or working on COLUMNS, consult BOTH the CSV and the JSON
+
+A column **cannot** be reasoned about from code alone. Before adding, removing,
+renaming, or "fixing" any column, consult **both** live artifacts together:
+
+1. **The Qualtrics export CSV** (`/qualtrics-csv-pull`, or `qualtrics/pull_export_csv_latest.py`)
+   — *is the field still arriving, and what values come in?* A column can be code-ALIVE
+   but perpetually blank because its CSV field stopped coming.
+2. **The survey-definition JSON** (`/qualtrics-survey-pull`) — *does the source question
+   still exist, is it in a live block or orphaned, what format/validation does it enforce?*
+   A question can be deleted or moved out of every block ("dead") while the column lingers.
+
+Code + CSV alone misses deleted questions; code + JSON alone misses fields that stopped
+arriving. **Both, every time.** `/qualtrics-column-trace` runs both (plus the code + the
+workbook) in one shot — prefer it for any column audit. This rule is the lesson of the
+`part_zoom` dead-column and `f_ty_2_con` format-drift audits (2026-06-04).
+
+The CSV is consumed **label-based** (`useLabels=True`): fields are TEXT, not numeric
+recode values. Tune all column code to the label form — see ADR 0003 and
+`/label-numeric-audit`.
+
+---
+
 ## CSV structure
 
-The exported CSV has **two header rows**:
+The exported CSV has **three header rows** (the export pulls `useLabels=True`):
 - Row 1: API field names (`DataExportTag` values) — used for all code references
-- Row 2: Human-readable labels + `ImportId` metadata (ignore in code)
-- Row 3+: Data rows
+- Row 2: Human-readable question text
+- Row 3: `{"ImportId":...}` metadata
+- Row 4+: Data rows
 
-**Qualtrics built-in columns:**
+`read_csv_from_zip` takes fieldnames from row 1 and slices `rows[3:]` so rows 2+3
+are dropped. **Bare `csv.DictReader` does NOT do this** — it treats rows 2+3 as
+data (2 phantom rows). Always go through `read_csv_from_zip`.
 
-| Column | Values | Notes |
+**Qualtrics built-in columns** — values shown are the `useLabels=True` form
+(TEXT labels), which is what production actually downloads:
+
+| Column | Values (useLabels=True) | Notes |
 |--------|--------|-------|
 | `ResponseId` | `R_...` | Unique response ID |
-| `Status` | `0` = live, `1` = preview/test | **Filter: only Status=0 goes to live workbook** |
-| `Finished` | `1` = complete, `0` = partial | Filter: only Finished=1 is processed |
+| `Status` | **`IP Address`** (live), **`Survey Preview`** (preview), **`Imported`** (API) — TEXT, not `0`/`1` | Per ADR 0003 `qualtrics_status` stores this **label text**; the live preview-filter re-derives the numeric code via `status_code()`/`normalize_status` and keeps only the IP-Address (`0`) form (`QUALTRICS_STATUS_TARGET` stays numeric). Use `is_live_response(row)` — **never compare raw `Status == "1"`** (dead under labels). |
+| `Finished` | **`True`** / `False` (text) | `is_finished()` accepts `1`/`true`/`yes`. Only finished is processed. |
 | `StartDate` / `EndDate` | ISO datetime | UTC |
 | `Q_Language` | `DE`, `FR` | Respondent language |
 | `RecipientEmail` | email | Distribution email (may be empty) |
@@ -144,3 +173,19 @@ QUALTRICS_WORKBOOK_MODE=live INSIDE_AUTOMATION_CYCLE=1 \
 | `INSIDE_AUTOMATION_CYCLE` | Set to `1` when running from automation scripts |
 
 All set by `source qualtrics/qualtrics_env.sh`.
+
+---
+
+## Composes with (column-work toolkit)
+
+| Skill | Use for |
+|---|---|
+| `/qualtrics-csv-pull` | pull live response DATA (the CSV half of the column rule) |
+| `/qualtrics-survey-pull` | pull live survey DEFINITION JSON (the JSON half; is a question alive/orphaned?) |
+| `/qualtrics-column-trace` | **trace one column across survey → CSV → code → workbook in one shot** — the go-to for column audits |
+| `/workbook-format-census` | census date/time/number formats across all sheets; flag MIXED columns |
+| `/label-numeric-audit` | find numeric assumptions on the label-based CSV (dead `Status=="1"` guards, bare `DictReader`) |
+| `/qualtrics-restructure-step` | actually MUTATE the survey (add/rename/delete a question) |
+
+Governing decision: `docs/adr/0003-label-based-csv-consumption.md` (CSV consumed
+label-based; one tolerant normalizer per semantic field; no numeric-export interpreter).

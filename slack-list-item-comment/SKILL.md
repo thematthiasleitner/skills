@@ -42,6 +42,26 @@ Cache the channel ID once found — you don't need to re-discover it per session
 
 ---
 
+## Fast path (one shot) — when the item already has ≥1 comment
+
+You usually don't need to find the discussion channel first. Search a
+**unique quoted snippet of an existing comment across ALL channels** (no
+`in:` filter) — the hit returns the discussion channel + `thread_ts` together:
+
+```
+slack_search_public_and_private  query='"<unique phrase from an existing comment>"'
+→ Channel: #FC:F<list-id>:<title> (C…)   thread_ts=…   (also in the Permalink)
+```
+
+That single call resolves both the channel and the thread root; jump straight
+to **Posting the comment** (verify with `slack_read_thread` if the match is
+fuzzy). Use the slower channel-discovery recipe below only when the item has
+**zero** comments yet, or the snippet search is ambiguous.
+
+> ⚠️ Plain `slack_search_public` does NOT index Slack List comments — you must
+> use `slack_search_public_and_private`. This is the single most common reason
+> a comment thread "can't be found".
+
 ## How to find the thread parent for a specific item
 
 The trick: thread parents are Slackbot messages whose text is literally `"A comment was added"`. They are uninformative on their own. You have to find them by their **thread content** (an existing reply mentioning the item's topic), since the parent itself has no identifying text.
@@ -107,3 +127,22 @@ The Slack toolkit has both `slack_send_message` and `slack_send_message_draft`. 
 ## Reference incident
 
 A previous session posted a long status update to a `#…-log` mirror channel thread, mistakenly believing it would surface as a comment on the corresponding list item. The user had to correct twice. The root confusion was that BOTH channels mention the same `Rec…` record_id — the mirror via bot reflection, the discussion channel via the slack-rendered thread. Only the discussion channel (whose name pattern is `#FC:F…:…`) is the canonical home of item comments.
+
+---
+
+## Composes with / per-workspace cheat-sheets
+
+This skill is workspace-agnostic — it resolves the discussion channel + thread
+at runtime. For a specific recurring list, cache its IDs in a memory or note so
+you skip discovery:
+
+- **cigev ADVANCE "Task Dashboard"** (`F0ABTMRTU9X`): discussion channel
+  `C0ABTMRTU9X`, read-only mirror `#task-dashboard-log` `C0B4V8MVC23`. See
+  memory `reference_task_dashboard_slack`.
+- Other lists: drop a one-line `<list-title> → discussion C…, mirror C…` note
+  the first time you resolve them.
+
+Pairs naturally with any skill that produces something to *report on* a task
+item — e.g. after a deploy, a pipeline summary, or a status update, use this
+skill to land the write-up in the right item's Comments thread (deliver a
+canvas/file link rather than a wall of text).
