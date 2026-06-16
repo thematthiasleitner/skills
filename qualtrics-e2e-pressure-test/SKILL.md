@@ -154,13 +154,20 @@ Then re-pull the CSV to confirm the response is absent.
 
 ## Safety invariants
 
-- **Persona email must end in `@advance-test.invalid`.** Production cycles skip
-  these via the test-marker substring check. Mistakes here would create real
-  recruitment data.
-- **Status=1 in persona JSON, Qualtrics stores as Status=4 Imported.** Live
-  workbook mode filters these out → never appear in the live recruitment workbook.
-  The pressure test verifies via local pipeline + raw CSV, NOT via live workbook
-  materialisation. This is correct behaviour — don't try to "force" them into live.
+- **Persona email must end in `@advance-test.invalid`.** This is now the SOLE
+  thing keeping personas out of live: the live export drops any row whose email
+  is in that marker domain (or a trai_onl trainer-name marker), independently of
+  status — `response_enters_live` / the live-only `exclude_test_markers` gate
+  (deploy-2026-06-09). A wrong/real email here WOULD create real recruitment
+  data now that the status gate is relaxed. Mistakes here are higher-stakes than
+  before — double-check the email.
+- **Status=1 in persona JSON, Qualtrics stores as Status=4 Imported.** As of the
+  Status=4 gate (2026-06-09) the LIVE workbook now ADMITS Status=4 (gate `0,4`),
+  so status no longer excludes personas — the **test-marker email** does. Real
+  (non-marker) Status=4 imports DO enter live by design (that's how
+  `tools/inject_facilitator_response.py` binds facilitators). The pressure test
+  still verifies via local pipeline + raw CSV; a marker persona must NOT appear
+  in the live workbook (Layer C `no-test-marker-in-live` enforces this).
 - **Cleanup runs always.** Wrap the assertions in try/finally — if a Pipeline
   assertion fails, you still DELETE the response. Leaving Status=4 imports
   hanging around forever pollutes future re-tests.

@@ -94,6 +94,37 @@ Known canonical shapes:
 - **MC single-choice "I confirm"**: see `step_5a_add_slots.py`
 - **DisplayLogic "show if X==Y"** (per-loop-iteration): see `step_6_zoom_display_logic.py`
 - **DisplayLogic "show if X in {a,b,c,d}"** (OR chain): see `step_5c_slot_count_gating.py`
+- **DisplayLogic "show if A AND (B OR C OR D)"** (two groups): see
+  `step_9_zoom_url_slot_gate.py`
+
+### Two-group AND DisplayLogic ("A AND (B OR C…)")
+
+There may be **no live two-group example in the survey to copy** (there wasn't,
+2026-06-12 — every existing DisplayLogic was a single group). The canonical
+Qualtrics shape, confirmed by PUT→GET round-trip:
+
+```python
+{
+  "0": {"0": exprA,                    # group 0: first expr has NO Conjuction key
+        "Type": "If"},
+  "1": {"0": {**exprB, "Conjuction": "And"},   # inter-group AND lives on the
+        "1": {**exprC, "Conjuction": "Or"},    #   FIRST expr of the SECOND group
+        "2": {**exprD, "Conjuction": "Or"},
+        "Type": "If"},
+  "Type": "BooleanExpression", "inPage": False,
+}
+```
+
+Rules: top-level numbered groups `"0"`,`"1"`,…; the **inter-group conjunction is
+carried as `"Conjuction":"And"` on the first expression of each subsequent
+group** (Qualtrics' misspelling); within a group, expr `i>0` carry
+`"Conjuction":"Or"`; group-0 expr-0 carries none. Preserve the *existing* group
+verbatim and **append** the new group (don't rebuild group 0). Loop-block targets
+still need `QuestionIsInLoop:"yes"` + `LoopAndMergeLoops:"current"` on every expr
+(Rule 7). Since there's no live template, **apply to ONE question first, GET it
+back to confirm Qualtrics accepted+preserved the shape, then batch the rest**
+(`step_9` has a `--only QID` flag + a post-PUT `verify_applied` GET for exactly
+this).
 
 ## Rule 6: BlockElements reorders MUST preserve everything not explicitly moved
 

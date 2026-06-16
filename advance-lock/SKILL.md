@@ -39,6 +39,11 @@ The block message tells you why: held by another agent (wait), free but unclaime
 — the guard is fail-closed by design).
 
 ## Notes
+- **Run `agent_lock.py` from your LOCAL clone, never ON the server.** The tool
+  SSHes *to* the production server to manage the lock dir; run it on the server
+  and it tries to SSH to itself with a key that isn't there, fail-closing with
+  `cannot verify lock (ssh rc=255: ... /home/leitneruser/.ssh/ssh-key not
+  accessible)`. That message is "wrong place", not "lock broken".
 - Gated commands (what the guard intercepts) are defined in `GATED_PATTERNS` in
   `tools/agent_lock.py` and mirrored in `.claude/hooks/agent_lock_guard.sh`. Keep
   them in sync if you add a new live-op entry point.

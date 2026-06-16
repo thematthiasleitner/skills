@@ -1,0 +1,32 @@
+{
+  "result": {
+    "SurveyID": "SV_sample",
+    "Questions": {
+      "QID1": { "DataExportTag": "healthy_q" },
+      "QID2": { "DataExportTag": "blockless_q" },
+      "QID3": { "DataExportTag": "unreached_q" },
+      "QID4": { "DataExportTag": "f_ty_room_N_t1_time" }
+    },
+    "Blocks": {
+      "BL_live": {
+        "Type": "Standard",
+        "BlockElements": [
+          { "Type": "Question", "QuestionID": "QID1" },
+          { "Type": "Question", "QuestionID": "QID4" }
+        ]
+      },
+      "BL_orphan": {
+        "Type": "Standard",
+        "BlockElements": [
+          { "Type": "Question", "QuestionID": "QID3" }
+        ]
+      }
+    },
+    "SurveyFlow": {
+      "Type": "Root",
+      "Flow": [
+        { "Type": "Block", "ID": "BL_live" }
+      ]
+    }
+  }
+}

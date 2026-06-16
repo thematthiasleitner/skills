@@ -62,6 +62,42 @@ facility submission in Qualtrics they want to see in the workbook now.
 
 ---
 
+## Precondition — running JUST-PROMOTED code (tag-deploy)
+
+This skill runs the export on the server's **current git checkout**. Under the
+tag-deploy model (ADR 0004), a change you just `/advance-promote`d is NOT yet on
+that checkout: the server only self-updates to the latest `deploy-*` tag inside
+`cycle_launcher.sh` at the START of an AUTO cycle — a manual one-shot export does
+NOT self-update. So a raw trigger right after a promote **runs the OLD code**.
+
+To apply just-promoted code NOW, check the tag out first (replicating the
+launcher's clean-up), THEN trigger. This is a remote git op over SSH (the local
+OneDrive git-guard does not apply):
+
+```bash
+ssh -i ~/.ssh/ssh-key leitneruser@10.40.41.88 '
+  cd ~/email_draft_automation || exit 9
+  git fetch --tags --prune --quiet origin
+  git checkout -- context/compiled/ 2>/dev/null || true   # discard regenerable build drift
+  T="$(git tag -l "deploy-*" --sort=-version:refname | head -1)"
+  git checkout -q "$T" && git describe --tags --exact-match \
+    || { echo "CHECKOUT FAILED — do NOT run (dirty tree); surface it"; exit 8; }
+'
+```
+
+Gotchas (each cost time on 2026-06-15):
+- **`git fetch` first.** A tag you just pushed to GitLab isn't on the server
+  until fetched — `pathspec '<tag>' did not match` means *unfetched*, not a real
+  conflict.
+- **Only `context/compiled/` is safe to discard.** Other dirty tracked files
+  (the server-local `qualtrics_env.sh`, `run_watchdog.sh`) carry across the
+  checkout because they're identical between tags. If checkout fails on a
+  genuinely-divergent tracked file, STOP — don't force; surface it (mirrors
+  `cycle_launcher.sh`'s deliberate non-`-f` design).
+- **Don't want to touch server git?** Just wait ≤15 min for the auto-cycle — it
+  self-updates to your tag and runs the new code for you. Use the manual checkout
+  only when the user explicitly wants it live "now".
+
 ## Workflow
 
 ### Step 0: Safety check
@@ -159,7 +195,10 @@ they want to see, OR default to f_ty_2_con + list_rooms summary.
 
 ## Composes with
 
-- `/advance-deploy` — typically runs RIGHT BEFORE this skill, to push the
-  change being materialised
+- `/advance-promote` — the NORMAL predecessor (tag-deploy). After it, the server
+  is still on the OLD tag until the next auto-cycle, so honour the
+  "running JUST-PROMOTED code" precondition above before triggering.
+- `/advance-deploy` — break-glass predecessor (manual SSH push+pull, which DOES
+  check the code out); after it the current checkout is already the new code.
 - `/qualtrics-e2e-pressure-test` — alternative verification path that
   doesn't mutate the live workbook (uses Status=4 personas instead)

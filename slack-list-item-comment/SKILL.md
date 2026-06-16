@@ -11,6 +11,28 @@ This skill prevents the most common mistake: posting to the mirror instead of th
 
 ---
 
+## ✋ Pre-flight assertion — run before EVERY `slack_send_message`
+
+This mistake has recurred even with the recipe written down, because agents
+*improvise the target* instead of resolving it. Before you post, verify ALL
+three or STOP:
+
+1. **`channel_id` is the DISCUSSION channel** — name pattern `#FC:F…:…`
+   (cigev Task Dashboard = `C0ABTMRTU9X`). It is **NOT** the `#…-log` mirror
+   (cigev = `C0B4V8MVC23`). If your `channel_id` is the mirror, you are wrong —
+   full stop.
+2. **`thread_ts` parent is a Slackbot `"A comment was added"` message** — NOT a
+   bot field-change post containing `["Col…"]`, a `record_id`, a status, or the
+   item title. Those `["Col…"]` posts live in the mirror and are changelog
+   artefacts; threading a reply under one does NOT create an item comment.
+3. **You `slack_read_thread` the candidate root first** and its replies match
+   the item's topic. Bare `"A comment was added"` stub + on-topic replies = right
+   thread. A `["Col…"]` parent, or replies about a different item = wrong target.
+
+If any check fails, re-resolve with the recipe below. Never "post anyway."
+
+---
+
 ## The two channels you must distinguish
 
 | Channel | Identifier pattern | Role | Post here? |
@@ -78,15 +100,56 @@ Recipe:
 
 3. **Verify with `slack_read_thread`** on `channel_id=<discussion channel>, message_ts=<thread_ts>`. The replies should clearly correspond to the item.
 
-4. **If no existing reply exists** (the item has zero comments yet), you cannot find the thread parent by content. Fall back to time-proximity:
-   - Note the item's creation timestamp (visible in the mirror channel or the list).
-   - Read the discussion channel near that timestamp:
+4. **If no existing reply exists** (the item has zero comments yet), OR the
+   snippet search returns ONLY mirror hits (common — Slack List comment *text*
+   is often not full-text-indexed in the discussion channel; the stub
+   `"A comment was added"` carries no text and `slack_read_thread` on it shows
+   "No thread messages"), you cannot find the parent by content. Fall back to
+   **time-proximity, disambiguated by the mirror's UTC field**:
+   - The mirror post for your `record_id` prints the comment's exact wall-clock,
+     e.g. `June 15th, 2026 at 6:58 AM UTC` (this is the source of truth for *when*).
+   - Read the discussion channel across the item's comment window:
      ```
-     slack_read_channel  channel_id="<discussion channel>"  oldest=<just before>  latest=<just after>
+     slack_read_channel  channel_id="<discussion channel>"  oldest=<UTC-1min>  latest=<UTC+window>
      ```
-   - The Slackbot `"A comment was added"` message closest to the item's creation time is the parent. Confirm before posting.
+   - Several `"A comment was added"` stubs usually sit in that window (one per
+     comment, across DIFFERENT items). **Pick the stub whose wall-clock matches
+     your mirror UTC** (convert: the channel prints local, e.g. CEST = UTC+2, so
+     `6:58 UTC` ⇒ a `08:58:xx CEST` stub). Confirm by **elimination** — the
+     neighbouring stubs should map to OTHER items' mirror comments at THEIR
+     times. Only then reply under the matched stub.
+   - A reply posted to the right stub appears in the item's Comments panel even
+     when the stub had zero prior replies.
 
 ---
+
+## Message structure — two parts, always
+
+Every comment posted to an item thread has **two parts**, in this order:
+
+1. **Human part (first).** Written for a non-technical colleague (e.g. Melanie,
+   Nina, Cassandra) to read at a glance. Plain language, no file names, no code
+   symbols, no commit hashes. What changed, what it means for them, and whether
+   anything is needed from their side. A few sentences max.
+2. **Agent part (second).** Written for the next agent/maintainer picking up the
+   item. Here you DO name the technical detail: files, functions/symbols, MR /
+   commit / deploy-tag IDs, Qualtrics QIDs, Layer C checks, and any constraints
+   or gotchas worth carrying forward. Reference code by symbol, not line number
+   (line numbers drift).
+
+Separate the two parts clearly — a divider line and a small italic header for the
+second part — so the human can stop reading after part 1. Skeleton:
+
+```
+<plain-language update for colleagues — what changed + what they need to do>
+
+---
+*For the record (technical):*
+<files / symbols / MR + deploy IDs / constraints for the next agent>
+```
+
+Keep the human part first and skimmable; the agent part can be longer. Don't put
+secrets (tokens, internal infra) here — leave those in memory/repo.
 
 ## Posting the comment
 
@@ -126,7 +189,16 @@ The Slack toolkit has both `slack_send_message` and `slack_send_message_draft`. 
 
 ## Reference incident
 
-A previous session posted a long status update to a `#…-log` mirror channel thread, mistakenly believing it would surface as a comment on the corresponding list item. The user had to correct twice. The root confusion was that BOTH channels mention the same `Rec…` record_id — the mirror via bot reflection, the discussion channel via the slack-rendered thread. Only the discussion channel (whose name pattern is `#FC:F…:…`) is the canonical home of item comments.
+This has now been corrected **three times** (2026-05-26, and again 2026-06-08).
+The recurring failure: an agent posts a status update into the `#…-log` mirror
+channel, threading the reply under a `["Col…"]` field-change bot message, and
+believes it lands as a list-item comment. It does not. Both channels mention the
+same `Rec…` record_id — the mirror via bot reflection, the discussion channel via
+the slack-rendered thread — which is the source of the confusion. Only the
+discussion channel (name pattern `#FC:F…:…`, cigev = `C0ABTMRTU9X`) is the
+canonical home of item comments. The 2026-06-08 repeat happened because the agent
+acted from the mirror's search results without invoking this skill — hence the
+Pre-flight assertion at the top: **assert the channel before every post.**
 
 ---
 

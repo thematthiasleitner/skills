@@ -1,6 +1,6 @@
 ---
 name: advance-deploy
-description: Deploy local commits to the ADVANCE production server — load SSH keys via askpass, push to GitLab origin, SSH-pull on leitneruser@10.40.41.88, then run Layer C live-Qualtrics verification on the server. **High-risk (push to production is hard to revert) — DO propose via AskUserQuestion when the user is in a deploy-ready context, but NEVER silently invoke. Explicit user consent required.** Surface this skill when the user has commits ready to push, OR says they want to deploy/ship/release code, OR has just finished a code change that affects production. Handles the multi-step askpass dance (ssh-add gitlab + ssh-key keys, push, SSH-then-ssh-add-then-pull on server) that has tripped up every session this dance was needed.
+description: BREAK-GLASS manual deploy to the ADVANCE production server. As of 2026-06-08 (Phase 3, ADR 0004) the NORMAL deploy is automatic — open MR → green CI → push a `deploy-<date>` tag → the server auto-pulls it at its next 15-min cycle (no SSH, no passphrase). Use THIS skill only when auto-deploy is unavailable (paused cycle, broken launcher) or an urgent hotfix can't wait for a cycle: it loads SSH keys via askpass, pushes to GitLab, SSH-pulls on leitneruser@10.40.41.88, then runs Layer C live-Qualtrics verification. **High-risk (push to production is hard to revert) — propose via AskUserQuestion, NEVER silently invoke; explicit consent required.** Prefer the tag-promote path first; surface this only when the user explicitly wants a manual/break-glass deploy.
 tools: Bash, Read
 ---
 
@@ -12,6 +12,23 @@ multi-step SSH-agent + askpass routine that's needed because the SSH key is
 passphrase-protected AND the server-side agent doesn't survive across sessions.
 
 **This skill pushes to production — high-risk.**
+
+## Primary path (try this FIRST — this skill is break-glass)
+
+As of 2026-06-08 the server auto-deploys the latest **promote tag** at the start
+of each 15-min cycle (Phase 3; `run/cycle_launcher.sh` + a read-only deploy key;
+see `docs/adr/0004-isolated-clones-protected-main-deploy.md` +
+`docs/deploy_server_autopull_runbook.md`). The normal deploy is:
+
+```bash
+# from your isolated clone, after the change is merged to main via MR + green CI:
+git tag deploy-$(date +%F) origin/main && git push origin deploy-$(date +%F)
+# the server checks out this tag within ~15 min — no SSH, no passphrase.
+```
+
+Only fall through to the manual dance below when auto-deploy is **paused/broken**
+or an **urgent hotfix** can't wait for a cycle. Confirm with the user that they
+want a manual break-glass deploy before proceeding.
 
 **Discovery vs invocation pattern** (per project CLAUDE.md "Skill-suggestion checkpoint"):
 
@@ -59,6 +76,23 @@ Typical sequence:
 
 ---
 
+## Deploy modes (pick before Step 0)
+
+- **Full (default):** `git push origin main` → server `git pull origin main`.
+  Use when `main` is healthy and everything on it is meant to ship.
+- **Single-commit / feature-branch:** when `main` carries ANOTHER agent's
+  unreleased or test-red commits and you must ship ONLY your change, do NOT pull
+  `main` HEAD onto the server. Instead:
+  - integrate your commit so it isn't lost — fetch, then fast-forward `main` to it
+    (or rebase your commit onto `origin/main`) and push; **and**
+  - on the server, fast-forward to YOUR specific commit, not `main` HEAD:
+    `git fetch origin && git merge --ff-only <your-sha>` (server ends one commit
+    behind `origin/main`, carrying only your delta on top of what's already live).
+  Always verify the deployed file actually contains your change (`grep` a marker) —
+  a failed server fetch silently leaves HEAD unmoved ("Already up to date").
+  ⚠️ First check the server's CURRENT HEAD: if your "green base" is BEHIND the live
+  HEAD, a plain checkout would ROLL BACK another agent's already-live work.
+
 ## Workflow
 
 ### Step 0: Pre-deploy checks
@@ -98,6 +132,32 @@ so it doesn't show up in `ps aux` or shell history.
 ```bash
 echo "$PASS" | bash ~/.claude/skills/advance-deploy/_deploy.sh
 ```
+
+#### Step 2 ALT: passphrase-free server pull via forwarded agent (no server-side gitlab passphrase)
+
+If `~/.ssh/ssh-key` + `~/.ssh/gitlab_unige` are already loaded in your LOCAL agent
+(e.g. you ran `ssh-add` yourself, or `request-ssh-access`), you can skip the
+server-side askpass entirely: forward your agent and override the server's
+`IdentitiesOnly` so the server's `git` authenticates to GitLab with YOUR forwarded
+gitlab key. Local `git push origin main` works with the loaded key; then:
+
+```bash
+ssh -A -o ControlPath=none -i ~/.ssh/ssh-key -o IdentitiesOnly=yes leitneruser@10.40.41.88 '
+  cd ~/email_draft_automation &&
+  GIT_SSH_COMMAND="ssh -o IdentitiesOnly=no -o IdentityAgent=$SSH_AUTH_SOCK" git fetch origin &&
+  git merge --ff-only origin/main'   # or: --ff-only <your-sha> for single-commit mode
+```
+
+⚠️ **ControlMaster gotcha:** if `advance-agent-session` warmed a ControlMaster for
+the server, it was opened WITHOUT `-A`, and a *reused* master connection has no
+agent forwarding → the forwarded fetch fails ("correct access rights"). The
+`-o ControlPath=none` above forces a FRESH forwarded connection just for the pull,
+bypassing the (forwarding-less) master. The guard's own lock-check still rides the
+warm master. This is the route that worked on 2026-06-04 when the server had no
+SSH agent and couldn't reach GitLab on its own.
+
+(Note: the server-side `sudo` for pausing the cycle still needs the real
+passphrase — forwarding doesn't help there.)
 
 ### Step 3: Server-side Layer C verify
 
