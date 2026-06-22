@@ -60,9 +60,16 @@ Use when the user changed/added skills locally and wants them on GitHub (→ all
    ```
    Summarise added/modified skills in the message. Don't commit if `git status` is empty.
 
-4. **Push** — defer SSH passphrase handling to the `git-push` skill (github.com → `~/.ssh/ssh-key`):
-   invoke `/git-push`. If SSH is unavailable, fall back to the `gh`-authed HTTPS token:
-   `git push https://github.com/thematthiasleitner/skills.git main`.
+4. **Push.** `origin` is HTTPS with the `gh` credential helper wired in, so a plain push just works —
+   no passphrase:
+   ```bash
+   git push
+   ```
+   (Equivalent explicit form: `git -c credential.helper='!gh auth git-credential' push
+   https://github.com/thematthiasleitner/skills.git main`.) Requires `gh auth status` logged in as
+   `thematthiasleitner`. SSH is **not** wired for this repo — the keys on this machine
+   (`~/.ssh/ssh-key`, `~/.ssh/github_thematthiasleitner`) don't authenticate to it; don't route
+   through `/git-push` unless a working registered key is later added.
 
 5. **Confirm:** `git log @{u}..HEAD --oneline` returns empty.
 
@@ -110,7 +117,6 @@ anyone working in it sees them.
 
 ## Composes with
 
-- `git-push` — handles the github.com SSH passphrase for the `publish` push step.
 - `write-a-skill` — create a new skill; then `publish` it everywhere with this skill.
 - `session-harvest` — mints skills at session end; `publish` afterward to propagate them.
 
