@@ -121,6 +121,21 @@ Recipe:
    - A reply posted to the right stub appears in the item's Comments panel even
      when the stub had zero prior replies.
 
+5. **Brand-new item, never commented (no content + no obvious stub).** A freshly
+   created item often still has a zero-reply `"A comment was added"` stub from
+   around its **creation** time — so when there's no comment-event in the mirror
+   to anchor on, time-proximity to the item's *creation* timestamp can still find
+   it. If you can't confidently resolve it, the cheapest reliable path is to **ask
+   the user to add any one-word comment on the item in the Slack UI** (e.g.
+   "seed"). That creates/surfaces the thread and gives you the parent `thread_ts`
+   (it's in the permalink of their reply: `…?thread_ts=<parent>&cid=<C…>`); then
+   thread your real comment under that parent. The available MCP tools can only
+   **reply** to a thread, never originate an item's first comment from nothing —
+   so a one-time UI seed (by anyone) is the unblock, not a workaround to force.
+   (Verified 2026-06-18 on a fresh Task Dashboard item: user seeded "seed", its
+   permalink exposed `thread_ts`, the full comment threaded under it and rendered
+   in the item's Comments panel.)
+
 ---
 
 ## Message structure — two parts, always

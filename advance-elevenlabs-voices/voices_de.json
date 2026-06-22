@@ -1,0 +1,27 @@
+{
+  "_README": "Vetted ElevenLabs German voices for the ADVANCE project + the canonical EL settings. Voice IDs are usable via API only on a PAID plan (free tier blocks library voices). Used by skills advance-elevenlabs-narration / advance-elevenlabs-podcast.",
+  "provider": "elevenlabs",
+  "model_id": "eleven_multilingual_v2",
+  "output_format": "pcm_24000",
+  "output_format_note": "pcm_24000 = raw 24kHz/16-bit/mono, used directly. On a tier without pcm, set an mp3_* format; tts_backends transcodes via ffmpeg.",
+  "voice_settings": {"stability": 0.5, "similarity_boost": 0.75, "style": 0.0, "use_speaker_boost": true},
+  "pauses": {"inter_sentence_break_s": 0.4, "method": "ElevenLabs <break time=\"Xs\" /> tags injected between sentences (scripts add_sentence_breaks; --pause-break flag). EL-only; Gemini can't parse the tag."},
+  "mastering": {"target_lufs": -16.0, "true_peak_dbtp": -1.5, "note": "EL voices are clean/low-sibilance -> usually little/no de-essing. NEVER the 6-pass broadband ffmpeg deesser (pumps); see advance-tts-master."},
+  "chosen": {
+    "cog_narration_male": "99yd7kp7JQfByasFNZdT",
+    "podcast_female": "BtJhEZecBTSpKQ8EHRCJ",
+    "podcast_male": "99yd7kp7JQfByasFNZdT"
+  },
+  "voices": {
+    "female": [
+      {"name": "Lena - Warm & Professional", "id": "BtJhEZecBTSpKQ8EHRCJ", "accent": "standard", "age": "middle_aged", "character": "warm, neutral, professional", "use": "CHOSEN podcast female"},
+      {"name": "Bettina - Warm & Einfuehlsam", "id": "Ljh056ZotKDfGTc2jGL4", "accent": "standard", "age": "middle_aged", "character": "warm, empathetic, calm"},
+      {"name": "Hatti - Calm & Slow", "id": "x9tGbxYQaoX72Y8bvqBh", "accent": "standard", "age": "young", "character": "calm, slow (good for 60+, ~31s vs 20s on same text)"}
+    ],
+    "male": [
+      {"name": "Christian - Calm & Soothing", "id": "99yd7kp7JQfByasFNZdT", "accent": "standard", "age": "young", "character": "calm, soothing", "use": "CHOSEN COG narration + podcast male (Melanie's pick 2026-06-17)"},
+      {"name": "Daniel - German Narrator", "id": "2GbzpA60AS7Sdvj7zrZh", "accent": "standard", "age": "middle_aged", "character": "classic narrator"},
+      {"name": "Marcus - Deep & Calm German", "id": "3mGjh1Ujzta5Mr4shzgM", "accent": "standard", "age": "middle_aged", "character": "deep, calm"}
+    ]
+  }
+}

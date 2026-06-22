@@ -21,6 +21,18 @@ near-miss). See [docs/adr/0004-isolated-clones-protected-main-deploy.md](../../d
    branches `task/<task-id>`, copies `.env` + `qualtrics/qualtrics_env.sh` + a
    **private** preview-workbook copy (NOT `ms_token.json`, NOT a live-workbook
    symlink), and builds `.venv`.
+
+   > **Bootstrapping from the frozen OneDrive tree?** `scripts/new-agent.sh` was
+   > added *after* the OneDrive checkout's frozen commit, so it is often **absent
+   > there** (`email_draft_automation/scripts/` has only `authorize_graph.py`,
+   > `init_workbooks.py`, … — no `new-agent.sh`). Don't hand-roll a clone — run a
+   > recent clone's copy of the script, which is current and points at the GitLab
+   > origin:
+   > ```bash
+   > ls -t ~/dev/*/email_draft_automation/scripts/new-agent.sh | head -1   # newest available
+   > bash ~/dev/<recent-clone>/email_draft_automation/scripts/new-agent.sh <task-id>
+   > ```
+   > It clones fresh off `origin/main` regardless of which clone you launch it from.
 3. **Launch the agent IN the clone** (so its hooks bind to the clone):
    ```bash
    cd ~/dev/<task-id>/email_draft_automation && ADVANCE_AGENT_ID=<task-id> claude

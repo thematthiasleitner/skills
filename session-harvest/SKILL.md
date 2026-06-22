@@ -25,7 +25,8 @@ Each phase reads a plain-text artifact and writes a plain-text artifact, so phas
 **No proposal is made before surveying what already exists.** Run this once at the start of any invocation; every later phase reads its result, so the report never proposes something that duplicates an installed asset.
 
 1. **Existing skills** — `ls ~/.claude/skills/` and grep their `SKILL.md` descriptions (plus plugin skills surfaced in the session list). For each candidate, the verdict is one of: **new** (nothing close), **extend `<skill>`** (a skill covers the same domain — add to it, don't fork), or **already-covered** (reject; name the skill).
-2. **Existing tests / harnesses** — before any Phase-3 test, look for one to extend: repo `tests/test_*.py`, the Layer C smoke checks (`tools/layer_c_smoke.py`), `make` test targets, and any `runner.sh` already inside the target skill. A new standalone test is the last resort, not the default.
+2. **Existing memories — grep BODIES, not just the index.** `rg -i '<term>' <memory-dir>` across the whole memory directory, NOT only `MEMORY.md`. A lesson already sitting in a memory file's **body** is already-covered even when its filename/description don't mention it (the 2026-06-18 miss: a slack-lists gotcha was re-proposed although it was already at `reference_task_dashboard_slack` line 41). Verdict per memory candidate: **new file** / **append to `<file>`** / **already-covered: `<file>`**.
+3. **Existing tests / harnesses** — before any Phase-3 test, look for one to extend: repo `tests/test_*.py`, the Layer C smoke checks (`tools/layer_c_smoke.py`), `make` test targets, and any `runner.sh` already inside the target skill. A new standalone test is the last resort, not the default.
 
 Every line in the harvest report carries its Phase-0 verdict (`new` / `extends X` / `reuses harness Y` / `already-covered: Z`). If you can't cheaply tell whether something exists, say so rather than assume it's new.
 
@@ -41,11 +42,11 @@ Scan the session for **durable, reusable signal** and route each item. Sources, 
 
 For each candidate, classify the **route**:
 
-- **memory-only** — a fact, preference, or one-off gotcha. → hand to `remember` (or `claude-md-management:revise-claude-md` if it belongs in CLAUDE.md). Not every lesson deserves a skill.
+- **memory-only** — a durable fact or gotcha that passes the reuse test below (NOT a one-off). → hand to `remember` (or `claude-md-management:revise-claude-md` if it belongs in CLAUDE.md). Not every lesson deserves a skill. **Default to appending to an existing memory file** (the one the Phase-0 body grep surfaced); mint a NEW file only when no existing file is a reasonable home AND a distinct future task would recall it. A new file ⇒ a new `MEMORY.md` index line ⇒ treat as costly (the index has a size budget — keep it lean).
 - **skill-worthy** — a procedure that was *non-obvious*, *multi-step*, and *will recur*. → Phase 2.
 - **both** — recurring procedure whose rationale also belongs in memory.
 
-Reject candidates that are: trivial, already covered by an existing skill (grep `~/.claude/skills/*/SKILL.md` first), or specific to this one task with no reuse. Surface what you rejected and why — silent dropping reads as "covered everything."
+**The reuse test — apply to EVERY candidate before keeping it:** *would an agent on a **different** future task act differently because this was written down?* If no → reject. This kills fix-narratives ("what we did this session"), the verified-outcome victory lap, and anything already recorded in git / config / CLAUDE.md. Also reject: trivial, already covered by an existing skill (grep `~/.claude/skills/*/SKILL.md`) or by a memory **body** (the Phase-0 grep), or single-task with no reuse. Keep the *smallest durable nugget* — the non-obvious rule a future agent would trip on, not the play-by-play. Surface what you rejected and why — silent dropping reads as "covered everything."
 
 **Output:** the *harvest report* (see Propose-first). Writes nothing yet.
 
@@ -104,3 +105,14 @@ Only after approval: run Phase 2 + 3 and the memory hand-offs. Honor any pruning
 ## Self-evolution
 
 When a session keeps producing the same *kind* of skill, add a short recipe for it here. If a routing call was wrong (minted a skill that should've been memory, or vice-versa), tighten the Phase 1 criteria above so the next harvest is sharper.
+
+### Recipe: surface a MEMORY.md trim when the index is over budget
+
+A harvest *adds* to memory, so it's the natural moment to also notice the index has outgrown its budget and offer a trim. Treat this as a **housekeeping line in the harvest report** (not a lesson route), propose-first like everything else.
+
+- **Trigger.** The session shows a `MEMORY.md is NN KB (limit: MM KB)` warning, or `wc -c MEMORY.md` exceeds the limit, or you just appended an entry. Measure before proposing: `wc -c MEMORY.md`; longest lines via a tiny `python3` length sort (plain `sort` chokes on non-ASCII paths/emoji — use Python).
+- **Root cause is almost always the same.** Index lines grew from one-line hooks into mini-paragraphs that duplicate detail already in the topic files (embedded MR numbers, deploy tags, multi-clause status histories).
+- **The fix = compress, don't delete.** Rewrite each over-long entry to a terse recall hook (`slug — what it is + current status`); the full detail stays in the topic `.md` (linked), so **no information is lost** and recall still works. Default to shortening; only *drop* an index line (topic file stays on disk, still recallable) for a few fully-closed one-off incidents, and only if the user opts in.
+- **Offer tiers by scope** (compress >400ch / >300ch / all >200ch), each with an estimated post-trim file size, and recommend the one that lands under budget with growth headroom (the index grows ~1 entry/session).
+- **The real gate is file size, not line length.** `[name.md](name.md)` duplicates the filename, so a long slug costs ~90–110 chars of unavoidable link overhead before any hook — lines for long slugs will still measure >200 chars even with a tight hook. Verify success by `wc -c` under the limit, not by a per-line char cap. If the user wants strictly short *lines*, the lever is shortening the **display title** (`[short title](real_filename.md)`), which trades slug glanceability.
+- **Composes with** `remember` (the per-file writer) — this recipe tidies the *index* that `remember` appends to.

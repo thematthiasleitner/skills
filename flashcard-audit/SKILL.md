@@ -24,6 +24,14 @@ Every surviving card must pass at least one of these criteria:
 Cards that fail all four get retired. No exceptions for academic prestige
 or sunk cost.
 
+> **Deck exception — `fc/thesis`** (added 2026-06-16; see [EVOLUTION.md](EVOLUTION.md)).
+> Cards tagged `fc/thesis` (built by the `reference-flashcards` skill from the
+> MSc reference library) follow a DIFFERENT keep-rule: keep a card if it helps
+> the user *write or defend the thesis* (precise finding/stat, method rationale,
+> or a juror Q&A). Do NOT apply RETIRE-NARROW ("too academic") here — precision
+> is the point. Only retire `fc/thesis` cards that are true cross-file
+> duplicates or broken/placeholder. They are time-boxed to the defense.
+
 ## Flashcard syntax reference
 
 The vault uses the **Obsidian Spaced Repetition** plugin (v1.15.2):

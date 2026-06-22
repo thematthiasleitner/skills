@@ -14,6 +14,14 @@ workbook was reverted on the very next cycle, because the cycle runs an initial
 freshly-edited file. **Append-only protects against the *export* rewriting rows;
 it does NOT protect against *bisync* overwriting the whole file from a stale peer.**
 
+**Update (ADR 0007, 2026-06-08 pull-clobber fix):** the cycle-start pull is now
+`rclone copy OneDrive→server --update` **plus a `sync_meta` content guard**
+(`run/run_rclone_excel_sync.sh`) that REFUSES a content-stale OneDrive pull. So a
+server-side edit of an export-**preserved** column (set-if-empty / not recomputed),
+applied under the lock, now survives WITHOUT pausing the cycle — see option 3. The
+"always reverted unless paused" framing below predates that guard; the pause path
+is now the fallback, not the default, for that case.
+
 ## The core decision (do this FIRST, before writing any mutation)
 
 Classify the target column with `/workbook-format-census` (which sheet, value
@@ -42,11 +50,26 @@ distribution, MIXED?), then route:
    (Note: `trai_*` already self-heal because `rebuild_training_sheet` rewrites them
    wholesale — verify before adding a redundant pass.)
 
-3. **One-time sweep** (`tools/sweep_datetime_canonical.py`-style, `--dry-run`
-   default): valid ONLY for truly frozen historical data AND only with the
-   **cycle paused** (so no bisync runs during/after) — which needs the sudo
-   passphrase (`reference_manual_cycle_control`). Otherwise it WILL be reverted.
-   Keep such scripts as one-shot diagnostics; prefer option 2 for durability.
+3. **One-time sweep / backfill** (`--dry-run` default): for filling/correcting
+   EXISTING rows the writer won't touch (e.g. backfilling a derived-but-set-once
+   date column). Two durable ways — pick by whether the export PRESERVES the column:
+   - **Server-edit, no pause (post-ADR-0007; preferred for set-if-empty / export-
+     preserved columns).** Apply the sweep DIRECTLY ON THE SERVER's live workbook
+     (never the client-lagged OneDrive copy), holding the agent-lock, in the
+     inter-cycle window. It survives without pausing: the cycle-start `--update`
+     pull skips your file (server mtime is newest) and the `sync_meta` content
+     guard refuses a stale-OneDrive pull; the export then preserves your values
+     and the cycle-end push propagates them to OneDrive. **Verify** survival by
+     re-running the sweep `--dry-run` after a cycle → expect 0 changes. (Proven
+     2026-06-18: `part_post_ques_inv` backfill, 152 rows, survived ~10 cycles,
+     `tools/backfill_post_ques_inv.py`.) Time the edit to AVOID a mid-run cycle
+     (`systemctl is-active …-cycle.service` ≠ active) so the export doesn't write
+     over you. ⚠ Only valid when the export PRESERVES the column (set-if-empty /
+     not recomputed) AND you can hold server-mtime-newest under the lock.
+   - **Paused cycle (fallback).** For a column the export OVERWRITES each cycle,
+     or when you can't hold server-mtime-newest, pause the cycle (sudo,
+     `reference_manual_cycle_control`) so no bisync runs, sweep, then resume.
+   Prefer option 2 (self-heal) when the fix should also apply to FUTURE rows.
 
 **Rule of thumb:** if the fix must persist on a live, bisynced, cycling workbook
 and you can't guarantee a paused cycle, make it a **self-heal in the export**, not
